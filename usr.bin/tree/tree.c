@@ -11,12 +11,12 @@ void print_tree(const char *path, int level){
     struct stat statbuf;
     char full_path[1024];
 
-    if(dir = opendir(path)){
+    if((dir = opendir(path)) != NULL){
         while((entry = readdir(dir)) != NULL){
             if(strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") ==0){
                 continue;
             }
-            snprintf(full_path, sizeof(path), "%s/%s", path, entry->d_name);
+            snprintf(full_path, sizeof(full_path), "%s/%s", path, entry->d_name);
 
             if(lstat(full_path, &statbuf) == -1){
                 continue;
