@@ -5,7 +5,7 @@
 #include<sys/stat.h>
 #include<unistd.h>
 
-void print_tree(const char *path, int level){
+static void print_tree(const char *path, int level){
     DIR *dir;
     struct dirent *entry;
     struct stat statbuf;
