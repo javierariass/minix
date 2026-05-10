@@ -86,24 +86,24 @@ static void pick_cpu(struct schedproc * proc)
 
 int do_noquantum(message *m_ptr)
 {
-	register struct schedproc *rmp;
-	int rv, proc_nr_n;
+    register struct schedproc *rmp;
+    int rv, proc_nr_n;
 
-	if (sched_isokendpt(m_ptr->m_source, &proc_nr_n) != OK) {
-		printf("SCHED: WARNING: got an invalid endpoint in OOQ msg %u.\n",
-		m_ptr->m_source);
-		return EBADEPT;
-	}
+    if (sched_isokendpt(m_ptr->m_source, &proc_nr_n) != OK) {
+        printf("SCHED: WARNING: got an invalid endpoint in OOQ msg %u.\n",
+        m_ptr->m_source);
+        return EBADEPT;
+    }
 
-	rmp = &schedproc[proc_nr_n];
-	if (rmp->priority < MIN_USER_Q) {
-		rmp->priority += 1; /* lower priority */
-	}
+    rmp = &schedproc[proc_nr_n];
+    
+	/*Incrementar el contador*/
+    rmp->count_timeouts += 1; 
 
-	if ((rv = schedule_process_local(rmp)) != OK) {
-		return rv;
-	}
-	return OK;
+    if ((rv = schedule_process_local(rmp)) != OK) {
+        return rv;
+    }
+    return OK;
 }
 
 /*===========================================================================*
@@ -345,25 +345,39 @@ void init_scheduling(void)
  *				balance_queues				     *
  *===========================================================================*/
 
-/* This function in called every N ticks to rebalance the queues. The current
- * scheduler bumps processes down one priority when ever they run out of
- * quantum. This function will find all proccesses that have been bumped down,
- * and pulls them back up. This default policy will soon be changed.
- */
 void balance_queues(void)
 {
-	struct schedproc *rmp;
-	int r, proc_nr;
+    struct schedproc *rmp;
+    int r, proc_nr;
+    int penalty_threshold = 3; 
 
-	for (proc_nr=0, rmp=schedproc; proc_nr < NR_PROCS; proc_nr++, rmp++) {
-		if (rmp->flags & IN_USE) {
-			if (rmp->priority > rmp->max_priority) {
-				rmp->priority -= 1; /* increase priority */
-				schedule_process_local(rmp);
-			}
-		}
-	}
+    for (proc_nr=0, rmp=schedproc; proc_nr < NR_PROCS; proc_nr++, rmp++) {
+        if (rmp->flags & IN_USE) {
+           
+            /* Bajamos prioridad si consume de mas */
+            if (rmp->count_timeouts >= penalty_threshold) {    
+				/*No exceder del minimo*/          
+                if (rmp->priority < MIN_USER_Q) {
+                    rmp->priority += 1; 
+                }
+            } 
+            /* Restaurar prioridad */
+            else if (rmp->count_timeouts == 0) {
+                /* No exceder del maximo */
+                if (rmp->priority > rmp->max_priority) {
+                    rmp->priority -= 1; 
+                }
+            }
 
-	if ((r = sys_setalarm(balance_timeout, 0)) != OK)
-		panic("sys_setalarm failed: %d", r);
+            /* Reseteo de contador*/
+            rmp->count_timeouts = 0;
+                       
+            schedule_process_local(rmp);
+            
+            /* ------------------------- */
+        }
+    }
+
+    if ((r = sys_setalarm(balance_timeout, 0)) != OK)
+        panic("sys_setalarm failed: %d", r);
 }
